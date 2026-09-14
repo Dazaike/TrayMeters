@@ -10,6 +10,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly Dictionary<string, PerformanceCounter> _gpuCounters = new();
     private readonly Settings _settings;
     private readonly List<(string Luid, string Name)> _adapters;
+    private string? _selectedLuid;
     private readonly List<ToolStripMenuItem> _gpuMenuItems = new();
     private readonly MetricTrayIcon _cpuIcon;
     private readonly MetricTrayIcon _ramIcon;
@@ -24,7 +25,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _menu = new ContextMenuStrip();
 
         var gpuMenu = new ToolStripMenuItem("GPU Source");
-        var autoItem = new ToolStripMenuItem("Busiest GPU (auto)") { Checked = _settings.SelectedGpuLuid is null };
+        var autoItem = new ToolStripMenuItem("Busiest GPU (auto)") { Checked = _settings.SelectedGpuName is null };
         autoItem.Click += (_, _) => SelectGpu(null, autoItem);
         gpuMenu.DropDownItems.Add(autoItem);
         _gpuMenuItems.Add(autoItem);
@@ -34,10 +35,16 @@ internal sealed class TrayApplicationContext : ApplicationContext
             gpuMenu.DropDownItems.Add(new ToolStripSeparator());
             foreach ((string luid, string name) in _adapters)
             {
-                var item = new ToolStripMenuItem(name) { Checked = _settings.SelectedGpuLuid == luid };
-                item.Click += (_, _) => SelectGpu(luid, item);
+                bool isSelected = _settings.SelectedGpuName == name;
+                var item = new ToolStripMenuItem(name) { Checked = isSelected };
+                item.Click += (_, _) => SelectGpu(name, item);
                 gpuMenu.DropDownItems.Add(item);
                 _gpuMenuItems.Add(item);
+
+                if (isSelected)
+                {
+                    _selectedLuid = luid;
+                }
             }
         }
 
@@ -69,13 +76,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _timer.Start();
     }
 
-    private void SelectGpu(string? luid, ToolStripMenuItem selected)
+    private void SelectGpu(string? name, ToolStripMenuItem selected)
     {
         foreach (ToolStripMenuItem item in _gpuMenuItems)
         {
             item.Checked = item == selected;
         }
-        _settings.SelectedGpuLuid = luid;
+        _settings.SelectedGpuName = name;
+        _selectedLuid = name is null ? null : _adapters.FirstOrDefault(a => a.Name == name).Luid;
         _settings.Save();
         _gpuIcon.Update();
     }
@@ -161,7 +169,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             }
         }
 
-        if (_settings.SelectedGpuLuid is { } selectedLuid)
+        if (_selectedLuid is { } selectedLuid)
         {
             return (int)Math.Round(maxByGpu.GetValueOrDefault(selectedLuid, 0f));
         }

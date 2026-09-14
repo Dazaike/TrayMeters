@@ -6,10 +6,15 @@ namespace TrayMeters;
 internal sealed class Settings
 {
     /// <summary>
-    /// LUID key (matching <see cref="GpuAdapterNames.GetAdapters"/>) of the adapter to always show,
-    /// or <c>null</c> to track whichever installed GPU is currently busiest.
+    /// Friendly adapter name (matching <see cref="GpuAdapterNames.GetAdapters"/>) of the adapter to
+    /// always show, or <c>null</c> to track whichever installed GPU is currently busiest.
     /// </summary>
-    public string? SelectedGpuLuid { get; set; }
+    /// <remarks>
+    /// Windows LUIDs are only valid for the current boot session and are reassigned on restart, so
+    /// they cannot be used as a persistent key — the adapter's friendly name is used instead and
+    /// re-resolved to a live LUID at startup.
+    /// </remarks>
+    public string? SelectedGpuName { get; set; }
 
     private static string FilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
