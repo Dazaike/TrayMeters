@@ -10,6 +10,7 @@ internal sealed class MetricTrayIcon : IDisposable
     private readonly Func<int> _sample;
     private readonly NotifyIcon _notifyIcon;
     private IntPtr _currentHIcon = IntPtr.Zero;
+    private int _lastPct = -1;
 
     public MetricTrayIcon(string label, Color color, Func<int> sample, ContextMenuStrip menu)
     {
@@ -26,6 +27,8 @@ internal sealed class MetricTrayIcon : IDisposable
     public void Update()
     {
         int pct = Math.Clamp(_sample(), 0, 100);
+        if (pct == _lastPct) return;
+        _lastPct = pct;
 
         // Render at native 16x16 tray icon size directly so Windows never blurs the digits via
         // downscaling. Digits are hand-crafted 5x11 bitmaps that fill 11 of the 16 available pixels

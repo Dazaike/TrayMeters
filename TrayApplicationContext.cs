@@ -7,7 +7,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
 {
     private readonly System.Windows.Forms.Timer _timer;
     private readonly PerformanceCounter _cpuCounter;
-    private readonly Dictionary<string, PerformanceCounter> _gpuCounters = new();
+    private readonly PerformanceCounterCategory _gpuCategory = new("GPU Engine");
+    private Dictionary<string, CounterSample> _gpuSamples = new();
     private readonly Settings _settings;
     private readonly List<(string Luid, string Name)> _adapters;
     private string? _selectedLuid;
@@ -102,62 +103,36 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private int SampleGpu()
     {
-        string[] instanceNames;
+        InstanceDataCollection data;
         try
         {
-            instanceNames = new PerformanceCounterCategory("GPU Engine").GetInstanceNames();
+            // One bulk read of the whole category instead of one PerformanceCounter per
+            // (process, engine) instance, which costs hundreds of handles and reads per tick.
+            data = _gpuCategory.ReadCategory()["Utilization Percentage"];
         }
-        catch (InvalidOperationException)
+        catch (Exception ex) when (ex is InvalidOperationException or KeyNotFoundException)
         {
             return 0;
         }
 
-        var currentNames = new HashSet<string>(instanceNames);
-
-        foreach (string name in instanceNames)
-        {
-            if (!_gpuCounters.ContainsKey(name))
-            {
-                try
-                {
-                    _gpuCounters.Add(name, new PerformanceCounter("GPU Engine", "Utilization Percentage", name));
-                }
-                catch (InvalidOperationException)
-                {
-                    // Instance vanished between enumeration and open; skip it this tick.
-                }
-            }
-        }
-
-        foreach (string staleName in _gpuCounters.Keys.Where(name => !currentNames.Contains(name)).ToList())
-        {
-            _gpuCounters[staleName].Dispose();
-            _gpuCounters.Remove(staleName);
-        }
-
-        // Windows exposes one counter instance per (process, GPU adapter, engine). Task Manager's
-        // per-GPU "Utilization" is: sum concurrent processes sharing one (GPU, engine), then take
-        // the busiest engine on that GPU. Summing across engine types (the previous bug) or across
-        // GPUs inflates the result past what any single GPU is actually doing, e.g. an idle-ish
-        // Intel iGPU (46% on its 3D engine) plus a mostly-idle discrete GPU's Copy/VideoDecode
-        // engines added together can clamp straight to 100 even though neither GPU is saturated.
+        var current = new Dictionary<string, CounterSample>(data.Count);
         var perEngineSum = new Dictionary<(string Luid, string EngineType), float>();
-        foreach (var (name, counter) in _gpuCounters)
+        foreach (InstanceData inst in data.Values)
         {
-            float value;
-            try
-            {
-                value = counter.NextValue();
-            }
-            catch (InvalidOperationException)
+            CounterSample sample = inst.Sample;
+            current[inst.InstanceName] = sample;
+            if (!_gpuSamples.TryGetValue(inst.InstanceName, out CounterSample prev))
             {
                 continue;
             }
 
-            (string luid, string engineType) = ParseGpuEngineInstance(name);
+            float value = CounterSample.Calculate(prev, sample);
+            (string luid, string engineType) = ParseGpuEngineInstance(inst.InstanceName);
             var key = (luid, engineType);
             perEngineSum[key] = perEngineSum.GetValueOrDefault(key) + value;
         }
+
+        _gpuSamples = current;
 
         var maxByGpu = new Dictionary<string, float>();
         foreach (var ((luid, _), sum) in perEngineSum)
@@ -205,11 +180,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _ramIcon.Dispose();
             _gpuIcon.Dispose();
             _cpuCounter.Dispose();
-            foreach (var counter in _gpuCounters.Values)
-            {
-                counter.Dispose();
-            }
-            _gpuCounters.Clear();
+            _gpuSamples.Clear();
             _menu.Dispose();
         }
         base.Dispose(disposing);

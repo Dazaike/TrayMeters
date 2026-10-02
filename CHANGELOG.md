@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.0.2] - 2026-10-01
+
+### Fixed
+- High CPU usage (~10% of a core) from the GPU meter. GPU utilization is now read with one bulk `PerformanceCounterCategory.ReadCategory()` per tick and computed from consecutive `CounterSample`s, instead of enumerating the category and polling one `PerformanceCounter` per process/engine instance every tick.
+
+### Changed
+- Tray icons are only re-rendered when their displayed percentage changes, avoiding a bitmap, GDI icon and `NotifyIcon` update on every tick.
+
 ## [v1.0.1] - 2026-09-14
 
 ### Fixed

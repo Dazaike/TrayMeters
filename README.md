@@ -2,7 +2,7 @@
 
 Lightweight Windows notification-area (system tray) resource monitor. Displays live **CPU**, **Memory**, and **GPU** usage as three separate, high-contrast tray icons with razor-sharp native 16×16 pixel-rendered numbers and selectable GPU tracking.
 
-![TrayMeters](https://img.shields.io/badge/version-1.0.1-blue.svg)
+![TrayMeters](https://img.shields.io/badge/version-1.0.2-blue.svg)
 ![Target](https://img.shields.io/badge/.NET-8.0--windows-purple.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows_10_%2F_11-lightgrey.svg)
 
@@ -35,7 +35,7 @@ Lightweight Windows notification-area (system tray) resource monitor. Displays l
 ## Installation & Running
 
 ### Download Release
-1. Download `TrayMeters-v1.0.1-win-x64.zip` from the [latest GitHub Release](../../releases).
+1. Download `TrayMeters-v1.0.2-win-x64.zip` from the [latest GitHub Release](../../releases).
 2. Extract the archive.
 3. Run `TrayMeters.exe`.
 4. Three icons will appear in your system tray (check the `^` overflow menu if hidden by Windows).
